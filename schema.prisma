@@ -1,0 +1,112 @@
+// datasource db defines the database connection settings.
+// It is configured for PostgreSQL and uses an environment variable for the connection URL.
+// The 'extensions' feature enables the use of PostgreSQL-specific data types.
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+// generator db configures Prisma Client settings.
+// It is set up to use Prisma Client Python with asyncio interface and specific features.
+generator db {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+  previewFeatures      = ["postgresqlExtensions"]
+}
+
+model User {
+  id        String    @id @default(dbgenerated("gen_random_uuid()"))
+  email     String    @unique
+  password  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lastLogin DateTime?
+  role      UserRole
+
+  Bookings      Booking[]
+  Feedbacks     Feedback[]
+  Notifications Notification[]
+  Professional  Professional?
+}
+
+model Professional {
+  id          String  @id @default(dbgenerated("gen_random_uuid()"))
+  userId      String  @unique
+  User        User    @relation(fields: [userId], references: [id])
+  isAvailable Boolean @default(false)
+
+  Availabilities    Availability[]
+  CalendarEntries   CalendarEntry[]
+  Bookings          Booking[]
+  FeedbacksReceived Feedback[]
+}
+
+model Availability {
+  id             String             @id @default(dbgenerated("gen_random_uuid()"))
+  professionalId String
+  Professional   Professional       @relation(fields: [professionalId], references: [id])
+  status         AvailabilityStatus
+  timestamp      DateTime           @default(now()) // When the availability status was last updated
+}
+
+model CalendarEntry {
+  id             String       @id @default(dbgenerated("gen_random_uuid()"))
+  professionalId String
+  Professional   Professional @relation(fields: [professionalId], references: [id])
+  startDateTime  DateTime
+  endDateTime    DateTime
+  title          String
+  description    String?
+}
+
+model Booking {
+  id             String        @id @default(dbgenerated("gen_random_uuid()"))
+  userId         String
+  User           User          @relation(fields: [userId], references: [id])
+  professionalId String
+  Professional   Professional  @relation(fields: [professionalId], references: [id])
+  scheduledTime  DateTime
+  endTime        DateTime?
+  status         BookingStatus
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId    String
+  User      User     @relation(fields: [userId], references: [id])
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Feedback {
+  id             String       @id @default(dbgenerated("gen_random_uuid()"))
+  comment        String?
+  rating         Int          @default(0)
+  professionalId String
+  Professional   Professional @relation(fields: [professionalId], references: [id])
+  userId         String
+  User           User         @relation(fields: [userId], references: [id])
+  createdAt      DateTime     @default(now())
+}
+
+enum UserRole {
+  ADMIN
+  PROFESSIONAL
+  END_USER
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
